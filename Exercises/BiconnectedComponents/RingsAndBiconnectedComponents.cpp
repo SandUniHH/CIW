@@ -39,10 +39,7 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 	/* set all bonds as cyclic for now */
 	for (BondPtr bond : mol->getBonds())
 	{
-		AtomPair atom_pair = bond->getAtoms();
-
-		if (atomIsHydrogen(atom_pair.first) ||
-			atomIsHydrogen(atom_pair.second)) continue;
+		if (hasHydrogen(bond)) continue;
 
 		cyclic[bond] = true;
 	}
@@ -83,23 +80,21 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 				}
 			}
 		}
-
 		if(!ring.empty())
 			rings.push_back(ring);
 	}
-
 	return rings;
 }
 
 /*----------------------------------------------------------------------------*/
 
-RingVector Naomini::moleculeGetExtendedRings(MoleculePtr mol){
+RingVector Naomini::moleculeGetExtendedRings(RingVector rings){
 
-	RingVector rings;
-	RingVector rings_to_extend = Naomini::moleculeGetRings(mol);
+	//RingVector rings_to_extend = Naomini::moleculeGetRings(mol);
+	RingVector extended_rings;
 	unsigned neighbour_counter;
 
-	for (Ring ring : rings_to_extend)
+	for (Ring ring : rings)
 	{
 		for (AtomPtr atom : ring)
 		{
@@ -117,12 +112,10 @@ RingVector Naomini::moleculeGetExtendedRings(MoleculePtr mol){
 				}
 				if (neighbour_counter == 1) extRing.insert(neighbour);
 			}
-			rings.push_back(extRing);
+			extended_rings.push_back(extRing);
 		}
 	}
-
-
-	return rings;
+	return extended_rings;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -132,26 +125,62 @@ BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
 
 	BCCVector allBCCs;
 	RingVector rings = Naomini::moleculeGetRings(mol);
-/*
+
 	for (Ring ring : rings)
 	{
 		for (AtomPtr atom : ring)
 		{
-			AtomSet linkers;
-			linkers.clear();
-
 			for (AtomPtr neighbour : atom->getNeighborAtoms())
 			{
-				linkers.insert(findOtherRing(atom, neighbour, rings));
-			}
+				AtomSet linker;
+				linker.clear();
 
-			if(!linkers.empty())
-				allBCCs.push_back(linkers);
+				Naomini::DFS_Linker(atom, neighbour, rings, linker);
+
+				if(!linker.empty())
+					allBCCs.push_back(linker);
+			}
 		}
 	}
-*/
 
 	return allBCCs;
+}
+
+/*----------------------------------------------------------------------------*/
+
+void Naomini::moleculeDyeComponents(MoleculePtr mol, RingVector rings, BCCVector bccs, AtomVector &dyed_rings,
+									AtomVector &dyed_linkers, AtomVector &dyed_misc)
+{
+	for (AtomPtr atom : mol->getAtoms())
+	{
+		if(atomIsHydrogen(atom)) continue;
+
+		if (isRingAtom(atom, rings))
+			dyed_rings.push_back(atom);
+		else if (isLinkerAtom(atom, bccs))
+			dyed_linkers.push_back(atom);
+		else
+			dyed_misc.push_back(atom);
+	}
+}
+
+void Naomini::moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer, RingVector rings, BCCVector bccs)
+{
+	for (BondPtr bond : mol->getBonds())
+	{
+		if (hasHydrogen(bond)) continue;
+
+		AtomPtr atom1 = bond->getAtoms().first;
+		AtomPtr atom2 = bond->getAtoms().second;
+
+		if (isRingAtom(atom1, rings) && isRingAtom(atom2, rings))
+			drawer.markBond(bond, MoleculeDrawer::RED);
+		else if ((isLinkerAtom(atom1, bccs) && (isLinkerAtom(atom2, bccs) || isRingAtom(atom2, rings))) ||
+				 (isLinkerAtom(atom2, bccs) && isRingAtom(atom1, rings)))
+			drawer.markBond(bond, MoleculeDrawer::GREEN);
+		else
+			drawer.markBond(bond, MoleculeDrawer::YELLOW);
+	}
 }
 
 /*----------------------------------------------------------------------------*/
@@ -198,4 +227,67 @@ void Naomini::DFS_Visit(AtomPtr atom, AtomPtr parent,
 	}
 }
 
+void Naomini::DFS_Linker(AtomPtr predecessor, AtomPtr atom, RingVector rings, AtomSet &linker)
+{
+	for (AtomPtr neighbour : atom->getNeighborAtoms())
+	{
+		if (neighbour != predecessor)
+		{
+			if (isCyclic(neighbour, rings))
+			{
+				linker.insert(atom);
+			}
+			else
+			{
+				Naomini::DFS_Linker(atom, neighbour, rings, linker);
+			}
+		}
+	}
+}
 
+bool Naomini::isCyclic(AtomPtr candidate, RingVector rings)
+{
+	for (Ring ring : rings)
+	{
+		for (AtomPtr atom : ring)
+		{
+			if (candidate == atom)
+				return true;
+		}
+	}
+	return false;
+}
+
+bool Naomini::isRingAtom(AtomPtr atom, RingVector rings)
+{
+	for (Ring ring : rings)
+	{
+		for (AtomPtr ringatom : ring)
+		{
+			if(atom == ringatom)
+				return true;
+		}
+	}
+	return false;
+}
+
+bool Naomini::isLinkerAtom(AtomPtr atom, BCCVector bccs)
+{
+	for (AtomSet linkers : bccs)
+	{
+		for (AtomPtr linker : linkers)
+		{
+			if(atom == linker)
+				return true;
+		}
+	}
+	return false;
+}
+
+bool Naomini::hasHydrogen(BondPtr bond)
+{
+		AtomPair atom_pair = bond->getAtoms();
+
+		return (atomIsHydrogen(atom_pair.first) ||
+				atomIsHydrogen(atom_pair.second));
+}
