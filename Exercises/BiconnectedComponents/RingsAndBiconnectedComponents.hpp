@@ -41,7 +41,7 @@ BCCVector moleculeGetBiconnectedComponents(MoleculePtr mol);
  * @brief recursive depth first search
  */
 void DFS_Visit(AtomPtr atom, AtomPtr parent,
-		std::vector<unsigned> &discovery, std::vector<unsigned> &low,
+		std::vector<unsigned> &discovery, std::map<AtomPtr, unsigned> &low,
 		unsigned &time, std::map<BondPtr,bool> &cyclic);
 
 /*----------------------------------------------------------------------------*/

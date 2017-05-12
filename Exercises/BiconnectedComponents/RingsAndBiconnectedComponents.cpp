@@ -9,18 +9,16 @@
 using namespace Naomini;
 
 RingVector Naomini::moleculeGetRings(MoleculePtr mol){
-  // Insert your code here but do not use this function for your solution!
-/* only in d)
-	RingVector rings = getRingsOfMolecule(mol);
-*/
+
+	// Insert your code here but do not use this function for your solution!
+	//RingVector rings = getRingsOfMolecule(mol);
 
 	RingVector rings;
-	Ring ring;
 	AtomSet atoms;
 
 	std::vector<unsigned> discovery; // storing the discovery time
-	std::vector<unsigned> low; // storing the lowpoint value
-	std::map<BondPtr,bool> cyclic;
+	std::map<AtomPtr, unsigned> low; // storing the lowpoint value
+	std::map<BondPtr, bool> cyclic;
 	unsigned time = 0;
 
 	for (AtomPtr atom : mol->getAtoms())
@@ -33,7 +31,7 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 		 * would be problematic if their IDs weren't higher than all the other atoms'.
 		 */
 		discovery.push_back(0);
-		low.push_back(0);
+		low[atom] = 0;
 
 		atoms.insert(atom);
 	}
@@ -56,25 +54,41 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 			Naomini::DFS_Visit(atom, NULL, discovery, low, time, cyclic);
 	}
 
-	/* push the cyclic bonds in the ring vector */
-	for (BondPtr bond : mol->getBonds())
+	/* Sort and collect the cyclic atoms with equal lowpoints */
+	for (unsigned lowpoint = 0; lowpoint <= time; lowpoint++)
 	{
-		if (cyclic[bond])
-		{
-			AtomPair atom_pair = bond->getAtoms();
-			ring.insert(atom_pair.first);
-			ring.insert(atom_pair.second);
-		}
-		/*
-		else if (ring.size() > 0)
-		{
-			//ring.clear();
-		}
-		*/
-	}
-		rings.push_back(ring);
+		Ring ring;
+		ring.clear();
 
-  return rings;
+		/* go through each entry in the lowpoint map */
+		for (const auto &entry : low)
+		{
+			/* check all the bonds for cyclic property */
+			for (BondPtr bond : entry.first->getBonds())
+			{
+				if (cyclic[bond])
+				{
+					AtomPair atom_pair = bond->getAtoms();
+
+					if (entry.second == lowpoint)
+					{
+						ring.insert(atom_pair.first);
+						ring.insert(atom_pair.second);
+					}
+					//current_set.insert(atom_pair.first);
+					//current_set.insert(atom_pair.second);
+
+					//cyclic_atoms.insert(atom_pair.first);
+					//cyclic_atoms[lowpoint] = current_set;
+				}
+			}
+		}
+
+		if(!ring.empty())
+			rings.push_back(ring);
+	}
+
+	return rings;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -108,15 +122,36 @@ RingVector Naomini::moleculeGetExtendedRings(MoleculePtr mol){
 	}
 
 
-  return rings;
+	return rings;
 }
 
 /*----------------------------------------------------------------------------*/
 
 BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
-  BCCVector allBCCs;
-  //throw "Insert your code in RingsAndBiconnectedComponents.cpp";
-  return allBCCs;
+	//throw "Insert your code in RingsAndBiconnectedComponents.cpp";
+
+	BCCVector allBCCs;
+	RingVector rings = Naomini::moleculeGetRings(mol);
+/*
+	for (Ring ring : rings)
+	{
+		for (AtomPtr atom : ring)
+		{
+			AtomSet linkers;
+			linkers.clear();
+
+			for (AtomPtr neighbour : atom->getNeighborAtoms())
+			{
+				linkers.insert(findOtherRing(atom, neighbour, rings));
+			}
+
+			if(!linkers.empty())
+				allBCCs.push_back(linkers);
+		}
+	}
+*/
+
+	return allBCCs;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -124,14 +159,14 @@ BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
 /*----------------------------------------------------------------------------*/
 
 void Naomini::DFS_Visit(AtomPtr atom, AtomPtr parent,
-		std::vector<unsigned> &discovery, std::vector<unsigned> &low,
+		std::vector<unsigned> &discovery, std::map<AtomPtr, unsigned> &low,
 		unsigned &time, std::map<BondPtr,bool> &cyclic)
 {
 	unsigned atom_id, adj_id;
 
 	atom_id = atom->getID();
 	discovery[atom_id] = ++time;
-	low[atom_id] = discovery[atom_id];
+	low[atom] = discovery[atom_id];
 
 	for (AtomPtr adj_atom : atom->getNeighborAtoms())
 	{
@@ -142,9 +177,9 @@ void Naomini::DFS_Visit(AtomPtr atom, AtomPtr parent,
 		if (discovery[adj_id] == 0)
 		{
 			DFS_Visit(adj_atom, atom, discovery, low, time, cyclic);
-			low[atom_id] = std::min(low[atom_id], low[adj_id]);
+			low[atom] = std::min(low[atom], low[adj_atom]);
 
-			if(low[adj_id] > discovery[atom_id])
+			if(low[adj_atom] > discovery[atom_id])
 			{
 				for (BondPtr bond : adj_atom->getBonds())
 				{
@@ -159,7 +194,7 @@ void Naomini::DFS_Visit(AtomPtr atom, AtomPtr parent,
 			}
 		}
 		else if (parent != NULL && adj_id != parent->getID())
-			low[atom_id] = std::min(low[atom_id], discovery[adj_id]);
+			low[atom] = std::min(low[atom], discovery[adj_id]);
 	}
 }
 
