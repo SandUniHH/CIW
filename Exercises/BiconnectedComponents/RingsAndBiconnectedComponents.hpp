@@ -1,3 +1,8 @@
+/* Edna Teich, Claudius Sandmeier
+ * CIW Blatt 3
+ * Abgabe 18.05.2017
+ */
+
 #pragma once
 
 /*----------------------------------------------------------------------------*/
@@ -36,29 +41,23 @@ RingVector moleculeGetExtendedRings(RingVector rings);
  */
 BCCVector moleculeGetBiconnectedComponents(MoleculePtr mol);
 
-void moleculeDyeComponents(MoleculePtr mol, RingVector rings, BCCVector bccs,
-						AtomVector &dyed_rings, AtomVector &dyed_linkers, AtomVector &dyed_misc);
-
-void moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer, RingVector rings, BCCVector bccs);
-
-/** Wanders through an atom's neighbours recursively
- *  and marks all bonds that are not cyclic.
+/* Fills the respective AtomVectors depending of whether the atom is
+ * part of a ring, a linker or single chain.
  *
- * @brief recursive depth first search
+ * @brief sorts atoms into their respective group
  */
-void DFS_Visit(AtomPtr atom, AtomPtr parent,
-		std::vector<unsigned> &discovery, std::map<AtomPtr, unsigned> &low,
-		unsigned &time, std::map<BondPtr,bool> &cyclic);
+void moleculeDyeComponents(MoleculePtr mol, RingVector rings, BCCVector bccs,
+							AtomVector &dyed_rings, AtomVector &dyed_linkers,
+							AtomVector &dyed_misc);
 
-void DFS_Linker(AtomPtr predecessor, AtomPtr atom, RingVector rings, AtomSet &linker);
+/* Similar to moleculeDyeComponents, but colours the bonds instead.
+ * Also colours directly and doesn't simply return the respective AtomVectors
+ *
+ * @brief colours bond according to their respective group
+ */
+void moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer, RingVector rings,
+						BCCVector bccs);
 
-bool isCyclic(AtomPtr candidate, RingVector rings);
-
-bool isRingAtom(AtomPtr atom, RingVector rings);
-
-bool isLinkerAtom(AtomPtr atom, BCCVector bccs);
-
-bool hasHydrogen(BondPtr bond);
 
 /*----------------------------------------------------------------------------*/
 /**********   NAMESPACE END                                          **********/

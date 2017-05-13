@@ -1,3 +1,8 @@
+/* Edna Teich, Claudius Sandmeier
+ * CIW Blatt 3
+ * Abgabe 18.05.2017
+ */
+
 #include <iostream>
 
 #include "Naomini/Atom.hpp"
@@ -26,10 +31,11 @@ int main(int argc, char *argv[]) {
 		RingVector rings = moleculeGetRings(mol);
 		BCCVector bccs = moleculeGetBiconnectedComponents(mol);
 
+		/* Mark all rings */
 		Naomini::MoleculeDrawer drawer1(mol);
-		//RingVector rings = moleculeGetRings(mol);
 		drawer1.markSubstructures(rings);
 
+		/* Mark all rings and single terminal atoms connected to rings */
 		Naomini::MoleculeDrawer drawer2(mol);
 		//RingVector extendedRings = moleculeGetExtendedRings(mol);
 		RingVector extendedRings = moleculeGetExtendedRings(rings);
@@ -37,8 +43,13 @@ int main(int argc, char *argv[]) {
 
 		Naomini::MoleculeDrawer drawer3(mol);
 
+		/* dye all biconnected components (linkers) */
+		//drawer3.markSubstructures(bccs);
+
+		/* dye all bonds according to whether they are rings, linkers or other. */
 		moleculeDyeBonds(mol, drawer3, rings, bccs);
 
+		/* dye all atoms instead */
 		/*
 		AtomVector dyed_rings;
 		AtomVector dyed_linkers;
@@ -48,11 +59,6 @@ int main(int argc, char *argv[]) {
 		drawer3.markSubstructure(dyed_linkers, MoleculeDrawer::GREEN);
 		drawer3.markSubstructure(dyed_misc, MoleculeDrawer::YELLOW);
 		*/
-
-		//BCCVector bccs = moleculeGetBiconnectedComponents(mol);
-		//drawer3.markSubstructures(bccs);
-
-		//Naomini::MoleculeDrawer drawer4(mol);
     }
   }
   catch (const char *err){

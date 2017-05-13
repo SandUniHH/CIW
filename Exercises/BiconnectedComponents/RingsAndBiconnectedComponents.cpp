@@ -1,3 +1,8 @@
+/* Edna Teich, Claudius Sandmeier
+ * CIW Blatt 3
+ * Abgabe 18.05.2017
+ */
+
 #include "RingsAndBiconnectedComponents.hpp"
 
 #include "Naomini/Forward.hpp"
@@ -6,12 +11,122 @@
 #include "Naomini/Bond.hpp"
 #include "Naomini/Helpers.hpp"
 
-using namespace Naomini;
+namespace Naomini {
 
-RingVector Naomini::moleculeGetRings(MoleculePtr mol){
+/*----------------------------------------------------------------------------*/
+/* Helper functions															  */
+/*----------------------------------------------------------------------------*/
+namespace {
+
+/* checks if an atom is cyclic, i.e. a ring atom */
+bool isRingAtom(AtomPtr atom, RingVector rings)
+{
+	for (Ring ring : rings)
+	{
+		for (AtomPtr ringatom : ring)
+		{
+			if(atom == ringatom)
+				return true;
+		}
+	}
+	return false;
+}
+
+/* checks if an atom is part of a biconnected component, i.e. a linker */
+bool isLinkerAtom(AtomPtr atom, BCCVector bccs)
+{
+	for (AtomSet linkers : bccs)
+	{
+		for (AtomPtr linker : linkers)
+		{
+			if(atom == linker)
+				return true;
+		}
+	}
+	return false;
+}
+
+/* checks if the bond is between a hydrogen and any other atom */
+bool hasHydrogen(BondPtr bond)
+{
+		AtomPair atom_pair = bond->getAtoms();
+
+		return (atomIsHydrogen(atom_pair.first) ||
+				atomIsHydrogen(atom_pair.second));
+}
+
+/** Wanders through an atom's neighbours recursively
+ *  and marks all bonds that are not cyclic. */
+void DFS_Visit(AtomPtr atom, AtomPtr parent,
+		std::vector<unsigned> &discovery, std::map<AtomPtr, unsigned> &low,
+		unsigned &time, std::map<BondPtr,bool> &cyclic)
+{
+	unsigned atom_id, adj_id;
+
+	atom_id = atom->getID();
+	discovery[atom_id] = ++time;
+	low[atom] = discovery[atom_id];
+
+	for (AtomPtr adj_atom : atom->getNeighborAtoms())
+	{
+		if(atomIsHydrogen(adj_atom)) continue;
+
+		adj_id = adj_atom->getID();
+
+		if (discovery[adj_id] == 0)
+		{
+			DFS_Visit(adj_atom, atom, discovery, low, time, cyclic);
+			low[atom] = std::min(low[atom], low[adj_atom]);
+
+			if(low[adj_atom] > discovery[atom_id])
+			{
+				for (BondPtr bond : adj_atom->getBonds())
+				{
+					AtomPair atom_pair = bond->getAtoms();
+					if ((atom_pair.first == adj_atom && atom_pair.second == atom) ||
+						(atom_pair.first == atom && atom_pair.second == adj_atom))
+					{
+						cyclic[bond] = false;
+						break;
+					}
+				}
+			}
+		}
+		else if (parent != NULL && adj_id != parent->getID())
+			low[atom] = std::min(low[atom], discovery[adj_id]);
+	}
+}
+
+/* recursively finds all biconnected components, i.e. linkers */
+void DFS_Linker(AtomPtr predecessor, AtomPtr atom,
+						 RingVector rings, AtomSet &linker)
+{
+	for (AtomPtr neighbour : atom->getNeighborAtoms())
+	{
+		if (neighbour != predecessor)
+		{
+			if (isRingAtom(neighbour, rings))
+			{
+				linker.insert(atom);
+			}
+			else
+			{
+				Naomini::DFS_Linker(atom, neighbour, rings, linker);
+			}
+		}
+	}
+}
+
+}
+
+/*----------------------------------------------------------------------------*/
+/* And now the really important functions									  */
+/*----------------------------------------------------------------------------*/
+
+RingVector moleculeGetRings(MoleculePtr mol){
 
 	// Insert your code here but do not use this function for your solution!
-	//RingVector rings = getRingsOfMolecule(mol);
+	// RingVector rings = getRingsOfMolecule(mol);
 
 	RingVector rings;
 	AtomSet atoms;
@@ -26,9 +141,11 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 		if(atomIsHydrogen(atom)) continue;
 
 		/* Since the molecules are sorted by decreasing atomic number,
-		 * we can simply push 0s in the vectors and know that the index will be correct later on.
+		 * we can simply push 0s in the vectors and know that the index
+		 * will be correct later on.
 		 * This is not relevant yet, but later on hydrogen getID() returns
-		 * would be problematic if their IDs weren't higher than all the other atoms'.
+		 * would be problematic if their IDs weren't higher than
+		 * all the other atoms'.
 		 */
 		discovery.push_back(0);
 		low[atom] = 0;
@@ -72,11 +189,6 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 						ring.insert(atom_pair.first);
 						ring.insert(atom_pair.second);
 					}
-					//current_set.insert(atom_pair.first);
-					//current_set.insert(atom_pair.second);
-
-					//cyclic_atoms.insert(atom_pair.first);
-					//cyclic_atoms[lowpoint] = current_set;
 				}
 			}
 		}
@@ -88,9 +200,9 @@ RingVector Naomini::moleculeGetRings(MoleculePtr mol){
 
 /*----------------------------------------------------------------------------*/
 
-RingVector Naomini::moleculeGetExtendedRings(RingVector rings){
+RingVector moleculeGetExtendedRings(RingVector rings){
 
-	//RingVector rings_to_extend = Naomini::moleculeGetRings(mol);
+	// RingVector rings_to_extend = Naomini::moleculeGetRings(mol);
 	RingVector extended_rings;
 	unsigned neighbour_counter;
 
@@ -120,7 +232,7 @@ RingVector Naomini::moleculeGetExtendedRings(RingVector rings){
 
 /*----------------------------------------------------------------------------*/
 
-BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
+BCCVector moleculeGetBiconnectedComponents(MoleculePtr mol){
 	//throw "Insert your code in RingsAndBiconnectedComponents.cpp";
 
 	BCCVector allBCCs;
@@ -132,6 +244,9 @@ BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
 		{
 			for (AtomPtr neighbour : atom->getNeighborAtoms())
 			{
+				if (atomIsHydrogen(neighbour) || isRingAtom(neighbour, rings))
+					continue;
+
 				AtomSet linker;
 				linker.clear();
 
@@ -142,13 +257,13 @@ BCCVector Naomini::moleculeGetBiconnectedComponents(MoleculePtr mol){
 			}
 		}
 	}
-
 	return allBCCs;
 }
 
 /*----------------------------------------------------------------------------*/
 
-void Naomini::moleculeDyeComponents(MoleculePtr mol, RingVector rings, BCCVector bccs, AtomVector &dyed_rings,
+void moleculeDyeComponents(MoleculePtr mol, RingVector rings,
+									BCCVector bccs, AtomVector &dyed_rings,
 									AtomVector &dyed_linkers, AtomVector &dyed_misc)
 {
 	for (AtomPtr atom : mol->getAtoms())
@@ -164,7 +279,8 @@ void Naomini::moleculeDyeComponents(MoleculePtr mol, RingVector rings, BCCVector
 	}
 }
 
-void Naomini::moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer, RingVector rings, BCCVector bccs)
+void moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer,
+							 	 RingVector rings, BCCVector bccs)
 {
 	for (BondPtr bond : mol->getBonds())
 	{
@@ -175,119 +291,13 @@ void Naomini::moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer, RingVecto
 
 		if (isRingAtom(atom1, rings) && isRingAtom(atom2, rings))
 			drawer.markBond(bond, MoleculeDrawer::RED);
-		else if ((isLinkerAtom(atom1, bccs) && (isLinkerAtom(atom2, bccs) || isRingAtom(atom2, rings))) ||
+		else if ((isLinkerAtom(atom1, bccs) &&
+				 (isLinkerAtom(atom2, bccs) || isRingAtom(atom2, rings)))
+				  ||
 				 (isLinkerAtom(atom2, bccs) && isRingAtom(atom1, rings)))
 			drawer.markBond(bond, MoleculeDrawer::GREEN);
 		else
 			drawer.markBond(bond, MoleculeDrawer::YELLOW);
 	}
 }
-
-/*----------------------------------------------------------------------------*/
-/* Helper functions															  */
-/*----------------------------------------------------------------------------*/
-
-void Naomini::DFS_Visit(AtomPtr atom, AtomPtr parent,
-		std::vector<unsigned> &discovery, std::map<AtomPtr, unsigned> &low,
-		unsigned &time, std::map<BondPtr,bool> &cyclic)
-{
-	unsigned atom_id, adj_id;
-
-	atom_id = atom->getID();
-	discovery[atom_id] = ++time;
-	low[atom] = discovery[atom_id];
-
-	for (AtomPtr adj_atom : atom->getNeighborAtoms())
-	{
-		if(atomIsHydrogen(adj_atom)) continue;
-
-		adj_id = adj_atom->getID();
-
-		if (discovery[adj_id] == 0)
-		{
-			DFS_Visit(adj_atom, atom, discovery, low, time, cyclic);
-			low[atom] = std::min(low[atom], low[adj_atom]);
-
-			if(low[adj_atom] > discovery[atom_id])
-			{
-				for (BondPtr bond : adj_atom->getBonds())
-				{
-					AtomPair atom_pair = bond->getAtoms();
-					if ((atom_pair.first == adj_atom && atom_pair.second == atom) ||
-						(atom_pair.first == atom && atom_pair.second == adj_atom))
-					{
-						cyclic[bond] = false;
-						break;
-					}
-				}
-			}
-		}
-		else if (parent != NULL && adj_id != parent->getID())
-			low[atom] = std::min(low[atom], discovery[adj_id]);
-	}
-}
-
-void Naomini::DFS_Linker(AtomPtr predecessor, AtomPtr atom, RingVector rings, AtomSet &linker)
-{
-	for (AtomPtr neighbour : atom->getNeighborAtoms())
-	{
-		if (neighbour != predecessor)
-		{
-			if (isCyclic(neighbour, rings))
-			{
-				linker.insert(atom);
-			}
-			else
-			{
-				Naomini::DFS_Linker(atom, neighbour, rings, linker);
-			}
-		}
-	}
-}
-
-bool Naomini::isCyclic(AtomPtr candidate, RingVector rings)
-{
-	for (Ring ring : rings)
-	{
-		for (AtomPtr atom : ring)
-		{
-			if (candidate == atom)
-				return true;
-		}
-	}
-	return false;
-}
-
-bool Naomini::isRingAtom(AtomPtr atom, RingVector rings)
-{
-	for (Ring ring : rings)
-	{
-		for (AtomPtr ringatom : ring)
-		{
-			if(atom == ringatom)
-				return true;
-		}
-	}
-	return false;
-}
-
-bool Naomini::isLinkerAtom(AtomPtr atom, BCCVector bccs)
-{
-	for (AtomSet linkers : bccs)
-	{
-		for (AtomPtr linker : linkers)
-		{
-			if(atom == linker)
-				return true;
-		}
-	}
-	return false;
-}
-
-bool Naomini::hasHydrogen(BondPtr bond)
-{
-		AtomPair atom_pair = bond->getAtoms();
-
-		return (atomIsHydrogen(atom_pair.first) ||
-				atomIsHydrogen(atom_pair.second));
 }
