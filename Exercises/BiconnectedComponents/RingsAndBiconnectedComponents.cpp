@@ -98,23 +98,27 @@ void DFS_Visit(AtomPtr atom, AtomPtr parent,
 }
 
 /* recursively finds all biconnected components, i.e. linkers */
-void DFS_Linker(AtomPtr predecessor, AtomPtr atom,
-						 RingVector rings, AtomSet &linker)
+bool DFS_Linker(AtomPtr predecessor, AtomPtr atom,
+				RingVector rings, AtomSet &linker)
 {
 	for (AtomPtr neighbour : atom->getNeighborAtoms())
 	{
 		if (neighbour != predecessor)
 		{
+			/* stop recursion if another ring has been found down the path */
 			if (isRingAtom(neighbour, rings))
 			{
 				linker.insert(atom);
+				return true;
 			}
 			else
 			{
-				Naomini::DFS_Linker(atom, neighbour, rings, linker);
+				if (Naomini::DFS_Linker(atom, neighbour, rings, linker))
+					linker.insert(atom);
 			}
 		}
 	}
+	return false;
 }
 
 }
@@ -250,7 +254,7 @@ BCCVector moleculeGetBiconnectedComponents(MoleculePtr mol){
 				AtomSet linker;
 				linker.clear();
 
-				Naomini::DFS_Linker(atom, neighbour, rings, linker);
+				DFS_Linker(atom, neighbour, rings, linker);
 
 				if(!linker.empty())
 					allBCCs.push_back(linker);
