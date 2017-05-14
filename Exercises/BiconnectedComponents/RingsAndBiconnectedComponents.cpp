@@ -113,7 +113,7 @@ bool DFS_Linker(AtomPtr predecessor, AtomPtr atom,
 			}
 			else
 			{
-				if (Naomini::DFS_Linker(atom, neighbour, rings, linker))
+				if (DFS_Linker(atom, neighbour, rings, linker))
 					linker.insert(atom);
 			}
 		}
