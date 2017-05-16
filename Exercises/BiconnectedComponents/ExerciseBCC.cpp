@@ -43,8 +43,8 @@ int main(int argc, char *argv[]) {
 
 		Naomini::MoleculeDrawer drawer3(mol);
 
-		/* dye all biconnected components (linkers) */
-		//drawer3.markSubstructures(bccs);
+		/* dye all linker atoms */
+		// drawer3.markSubstructures(bccs);
 
 		/* dye all bonds according to whether they are rings, linkers or other. */
 		moleculeDyeBonds(mol, drawer3, rings, bccs);

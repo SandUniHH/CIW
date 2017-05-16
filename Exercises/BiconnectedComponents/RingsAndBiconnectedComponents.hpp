@@ -21,7 +21,10 @@ namespace Naomini {
 
 /** Calculates a non-unique, but all-encompassing set of rings
  * of the molecule. Cycles (rings) are stored as atom sets (Ring). Returns a
- * vector of atom sets (RingVector).
+ * vector of atom sets (RingVector). Since the atoms are evaluated using their
+ * lowpoint values, several rings but not all of a poly-ring structure may be
+ * classified as one ring. Since all rings will be returned, the end result
+ * are still all rings of the input molecule.
  *
  * @brief calculates rings of a molecule
  */
@@ -35,9 +38,17 @@ RingVector moleculeGetRings(MoleculePtr mol);
  */
 RingVector moleculeGetExtendedRings(RingVector rings);
 
-/** Returns all biconnected components of a molecule.
+/** Returns the linkers of a molecule. Removing any bond of a linker results in
+ *  splitting the molecule in two biconnected components.
  *
- * @brief calculates biconnected components
+ *	Note: Due to the way this method was implemented, the method name and return
+ *	type is actually a bit of a misnomer. To reduce redundancy not the whole
+ *	component will be returned, only the AtomSets of linkers. Since we colour
+ *	the rest of the molecule later, we would otherwise colour some atoms doubly
+ *	or would need to split off the linkers from the rest of
+ *	the biconnected components first. The result remains the same.
+ *
+ * @brief calculates linkers of a molecule
  */
 BCCVector moleculeGetBiconnectedComponents(MoleculePtr mol);
 
