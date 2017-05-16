@@ -32,7 +32,7 @@ bool isRingAtom(AtomPtr atom, RingVector rings)
 	return false;
 }
 
-/* checks if an atom is part of a biconnected component, i.e. a linker */
+/* checks if an atom is part of the linkers vector, i.e. a linker */
 bool isLinkerAtom(AtomPtr atom, BCCVector bccs)
 {
 	for (AtomSet linkers : bccs)
@@ -97,7 +97,9 @@ void DFS_Visit(AtomPtr atom, AtomPtr parent,
 	}
 }
 
-/* recursively finds all biconnected components, i.e. linkers */
+/* Recursively find all atoms whose removal (more precisely removal of one of
+ * their bonds) would create biconnected components, i.e. linkers.
+ */
 bool DFS_Linker(AtomPtr predecessor, AtomPtr atom,
 				RingVector rings, AtomSet &linker)
 {
@@ -295,6 +297,10 @@ void moleculeDyeBonds(MoleculePtr mol, MoleculeDrawer drawer,
 
 		if (isRingAtom(atom1, rings) && isRingAtom(atom2, rings))
 			drawer.markBond(bond, MoleculeDrawer::RED);
+
+		/* If bond between two linker atoms or one linker and a ring atom
+		 * -> linker bond
+		 */
 		else if ((isLinkerAtom(atom1, bccs) &&
 				 (isLinkerAtom(atom2, bccs) || isRingAtom(atom2, rings)))
 				  ||
